@@ -1,0 +1,684 @@
+import { createFileRoute, useNavigate, ClientOnly } from "@tanstack/react-router";
+import { motion } from "framer-motion";
+import { useEffect, useRef, useState, lazy, Suspense } from "react";
+import {
+  MapPin,
+  Check,
+  Navigation,
+  X,
+  Loader2,
+  LocateFixed,
+  Undo2,
+  ExternalLink,
+  Route as RouteIcon,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { InterestIcon } from "@/components/InterestIcon";
+import { PhotoCredit } from "@/components/PhotoCredit";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useLang } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAuthGate } from "@/contexts/AuthGateContext";
+import { usePersonalPrefs } from "@/hooks/usePersonalPrefs";
+import { usePrefilledFilters } from "@/hooks/usePrefilledFilters";
+import { inPreferredProvinces } from "@/lib/pref-filters";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { UserMenu } from "@/components/UserMenu";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationsBell } from "@/components/NotificationsBell";
+import { AppSidebar } from "@/components/AppSidebar";
+import { type Destination } from "@/lib/destinations";
+import { loadDestinationsForRoute, useDestinations } from "@/hooks/useDestinations";
+import { useWhenVisible } from "@/hooks/useWhenVisible";
+import { FavoriteButton } from "@/components/FavoriteButton";
+import {
+  COMMUNITY_CATEGORIES,
+  fetchCommunityExperiences,
+  type CommunityCategory,
+  type CommunityExperience,
+} from "@/lib/community-experiences";
+import { addVisit, directionsUrls, fetchMyVisits, hasValidCoords, removeVisit } from "@/lib/visits";
+import { BackButton } from "@/components/BackButton";
+
+const InteractiveMap = lazy(() =>
+  import("@/components/InteractiveMap").then((m) => ({ default: m.InteractiveMap })),
+);
+
+export const Route = createFileRoute("/map")({
+  head: () => ({
+    meta: [
+      { title: "Mapa Interativo — EKAYA" },
+      {
+        name: "description",
+        content: "Mapa interativo de Moçambique com destinos comunitários autênticos.",
+      },
+      { property: "og:title", content: "Mapa Interativo — EKAYA" },
+      {
+        property: "og:description",
+        content: "Mapa interativo de Moçambique com destinos comunitários autênticos.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  // Destinations come with the server render (list and images in the HTML); the map itself
+  // still loads in the browser.
+  loader: () => loadDestinationsForRoute(),
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { destination?: string; community?: string; category?: CommunityCategory } => ({
+    ...(typeof search.destination === "string" ? { destination: search.destination } : {}),
+    ...(typeof search.community === "string" ? { community: search.community } : {}),
+    ...(typeof search.category === "string" &&
+    COMMUNITY_CATEGORIES.some((c) => c.id === search.category && c.id !== "all")
+      ? { category: search.category as CommunityCategory }
+      : {}),
+  }),
+  component: MapPage,
+});
+
+function MapPage() {
+  const { t, lang } = useLang();
+  const { isAuthenticated, authUser } = useAuth();
+  const { requireAccount } = useAuthGate();
+  const navigate = useNavigate();
+  const {
+    destination: linkedSlug,
+    community: linkedCommunity,
+    category: linkedCategory,
+  } = Route.useSearch();
+  const [communityCategory, setCommunityCategory] = useState<CommunityCategory | "all">(
+    linkedCategory ?? "all",
+  );
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(
+    linkedCommunity ?? null,
+  );
+  useEffect(() => {
+    setCommunityCategory(linkedCategory ?? "all");
+  }, [linkedCategory]);
+  useEffect(() => {
+    setSelectedCommunityId(linkedCommunity ?? null);
+  }, [linkedCommunity]);
+  // Starts on the saved provinces (unless a link points at a destination); "Show all" never changes
+  // the preferences.
+  const personalPrefs = usePersonalPrefs();
+  const mapFilters = usePrefilledFilters<{ onlyMine: boolean }>(
+    personalPrefs.hasPrefs && !linkedSlug ? { onlyMine: true } : null,
+    { onlyMine: false },
+  );
+  const hasProvincePrefs = personalPrefs.hasPrefs;
+  const showAllDestinations = !mapFilters.value.onlyMine;
+  const isPreferred = (d: Destination) => inPreferredProvinces(d.province, personalPrefs);
+  // Destinations already in the server HTML: show them at once (no entrance fade on the LCP card).
+  const serverDestinations = Route.useLoaderData();
+  const {
+    destinations,
+    loading: loadingDestinations,
+    error: destinationsError,
+    isEmpty,
+    reload,
+  } = useDestinations(serverDestinations);
+  const [selected, setSelected] = useState<Destination | null>(null);
+  const visibleDestinations =
+    hasProvincePrefs && !showAllDestinations ? destinations.filter(isPreferred) : destinations;
+
+  const mappable = visibleDestinations.filter((d) => hasValidCoords(d.coords));
+
+  useEffect(() => {
+    if (!destinations.length) return;
+    setSelected(
+      (current) =>
+        current ??
+        (linkedSlug
+          ? destinations.find((d) => d.slug === linkedSlug || d.id === linkedSlug)
+          : undefined) ??
+        destinations.find((d) => inPreferredProvinces(d.province, personalPrefs)) ??
+        destinations[0],
+    );
+  }, [destinations, personalPrefs, linkedSlug]);
+
+  const [origin, setOrigin] = useState<[number, number] | null>(null);
+  const [focus, setFocus] = useState<[number, number] | null>(null);
+  const [locating, setLocating] = useState(false);
+  useEffect(() => {
+    if (
+      linkedSlug &&
+      selected &&
+      (selected.slug === linkedSlug || selected.id === linkedSlug) &&
+      hasValidCoords(selected.coords)
+    )
+      setFocus(selected.coords);
+  }, [linkedSlug, selected]);
+  const [directionsOpen, setDirectionsOpen] = useState(false);
+  const [visited, setVisited] = useState<Set<string>>(new Set());
+  const [savingVisit, setSavingVisit] = useState(false);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const userId = isAuthenticated ? (authUser?.id ?? null) : null;
+  const pt = lang === "pt";
+
+  // Community (free) experiences: own layer and own marker, never mixed with destinations.
+  const [communityItems, setCommunityItems] = useState<CommunityExperience[]>([]);
+  const [showDestinations, setShowDestinations] = useState(true);
+  const [showCommunity, setShowCommunity] = useState(true);
+  const filteredCommunity = communityItems.filter(
+    (c) =>
+      (communityCategory === "all" || c.category === communityCategory) &&
+      c.lat !== null &&
+      c.lng !== null,
+  );
+  useEffect(() => {
+    fetchCommunityExperiences()
+      .then((rows) => {
+        setCommunityItems(rows);
+        const linked = linkedCommunity ? rows.find((r) => r.id === linkedCommunity) : undefined;
+        if (linked && linked.lat !== null && linked.lng !== null)
+          setFocus([linked.lat, linked.lng]);
+      })
+      .catch(() =>
+        toast.error(
+          pt
+            ? "Não foi possível carregar as experiências comunitárias."
+            : "Couldn't load community experiences.",
+        ),
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedCommunity]);
+
+  useEffect(() => {
+    if (!userId) {
+      setVisited(new Set());
+      return;
+    }
+    fetchMyVisits(userId)
+      .then(setVisited)
+      .catch(() =>
+        toast.error(pt ? "Não foi possível carregar as visitas." : "Couldn't load your visits."),
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  const isVisited = (id: string) => visited.has(id);
+
+  const locateMe = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error(
+        pt ? "Este dispositivo não suporta localização." : "This device doesn't support location.",
+      );
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const c: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setOrigin(c);
+        setFocus(c);
+        setLocating(false);
+      },
+      (err) => {
+        setLocating(false);
+        const msg =
+          err.code === err.PERMISSION_DENIED
+            ? pt
+              ? "Permissão recusada. Permite a localização nas definições do browser."
+              : "Permission denied. Allow location in your browser settings."
+            : err.code === err.POSITION_UNAVAILABLE
+              ? pt
+                ? "Localização indisponível."
+                : "Location unavailable."
+              : err.code === err.TIMEOUT
+                ? pt
+                  ? "A localização demorou demasiado. Tenta novamente."
+                  : "Location timed out. Try again."
+                : pt
+                  ? "Erro de localização."
+                  : "Location error.";
+        toast.error(msg);
+      },
+      { timeout: 10000, enableHighAccuracy: true, maximumAge: 0 },
+    );
+  };
+
+  const showDetails = (d: Destination) => {
+    setSelected(d);
+    setDirectionsOpen(false);
+    setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+
+  const openDirections = (d: Destination) => {
+    setSelected(d);
+    if (!hasValidCoords(d.coords)) {
+      toast.error(
+        pt
+          ? "Este local ainda não tem coordenadas disponíveis."
+          : "This place has no coordinates yet.",
+      );
+      return;
+    }
+    setDirectionsOpen(true);
+    setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+
+  const toggleVisit = async (d: Destination) => {
+    if (!requireAccount(pt ? "marcar como visitado" : "mark as visited")) return;
+    if (!userId) return;
+    const was = isVisited(d.id);
+    setSavingVisit(true);
+    try {
+      if (was) await removeVisit(userId, d.id);
+      else await addVisit(userId, d.id);
+      setVisited((prev) => {
+        const next = new Set(prev);
+        if (was) next.delete(d.id);
+        else next.add(d.id);
+        return next;
+      });
+      toast.success(
+        was
+          ? pt
+            ? "Visita removida"
+            : "Visit removed"
+          : pt
+            ? "Marcado como visitado"
+            : "Marked as visited",
+        { description: d.name },
+      );
+    } catch {
+      toast.error(pt ? "Não foi possível guardar. Tenta novamente." : "Couldn't save. Try again.");
+    } finally {
+      setSavingVisit(false);
+    }
+  };
+
+  const mapBox = useWhenVisible<HTMLDivElement>();
+
+  const MAP_PLACEHOLDER = (
+    <div className="h-full w-full flex items-center justify-center bg-muted">
+      <div className="animate-pulse text-muted-foreground">
+        {lang === "pt" ? "A carregar mapa..." : "Loading map..."}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-background">
+      <nav className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <AppSidebar />
+            <BackButton fallback="auto" showLabel />
+          </div>
+          <div className="flex items-center gap-1">
+            <NotificationsBell />
+            <ThemeToggle />
+            <LanguageToggle />
+            <UserMenu />
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight flex items-center gap-3">
+            <MapPin className="size-8 text-primary" /> {t("mapTitle")}
+          </h1>
+          <p className="text-muted-foreground mt-2">{t("mapSub")}</p>
+        </motion.div>
+
+        <div
+          className="mb-4 flex flex-wrap items-center gap-2 text-sm"
+          aria-label={pt ? "Legenda do mapa" : "Map legend"}
+        >
+          <button
+            type="button"
+            aria-pressed={showDestinations}
+            onClick={() => setShowDestinations((v) => !v)}
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 transition-opacity ${showDestinations ? "" : "opacity-50"}`}
+          >
+            <span className="size-3 rounded-full bg-success" aria-hidden />{" "}
+            {pt ? "Destinos" : "Destinations"} ·{" "}
+            <span className="size-3 rounded-full bg-primary" aria-hidden />{" "}
+            {pt ? "selecionado" : "selected"}
+          </button>
+          <button
+            type="button"
+            aria-pressed={showCommunity}
+            onClick={() => setShowCommunity((v) => !v)}
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 transition-opacity ${showCommunity ? "" : "opacity-50"}`}
+          >
+            <span
+              className="size-3 rotate-45 rounded-[3px]"
+              style={{ background: "oklch(0.55 0.16 245)" }}
+              aria-hidden
+            />{" "}
+            {pt ? "Experiências Comunitárias" : "Community Experiences"} ({filteredCommunity.length}
+            )
+          </button>
+          <span className="inline-flex items-center gap-2 rounded-full border border-dashed px-3 py-1.5 text-muted-foreground">
+            <span className="size-3 rounded-sm bg-warning" aria-hidden />{" "}
+            {pt
+              ? "Negócios: ainda sem coordenadas registadas"
+              : "Businesses: no coordinates registered yet"}
+          </span>
+        </div>
+
+        <div
+          className="mb-4 flex flex-wrap gap-2"
+          role="tablist"
+          aria-label={
+            pt ? "Categoria das experiências comunitárias" : "Community experience category"
+          }
+        >
+          {COMMUNITY_CATEGORIES.map((c) => (
+            <Button
+              key={c.id}
+              size="sm"
+              role="tab"
+              aria-selected={communityCategory === c.id}
+              variant={communityCategory === c.id ? "default" : "outline"}
+              onClick={() => {
+                setCommunityCategory(c.id);
+                setShowCommunity(true);
+                navigate({
+                  to: "/map",
+                  search: (prev) => ({ ...prev, category: c.id === "all" ? undefined : c.id }),
+                  replace: true,
+                });
+              }}
+            >
+              <InterestIcon id={c.id} /> {c.label[lang]}
+            </Button>
+          ))}
+        </div>
+
+        <div className="grid lg:grid-cols-[1fr_360px] gap-6">
+          {/* Map */}
+          <Card
+            ref={mapBox.ref}
+            className="relative overflow-hidden border-0 shadow-[var(--shadow-elegant)] h-[420px] sm:h-[500px] lg:h-[640px] p-0"
+          >
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={locateMe}
+              disabled={locating}
+              className="absolute bottom-4 left-4 z-[500] shadow-md"
+            >
+              {locating ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <LocateFixed className="size-4" />
+              )}
+              {locating
+                ? pt
+                  ? "A localizar..."
+                  : "Locating..."
+                : origin
+                  ? pt
+                    ? "Atualizar localização"
+                    : "Update location"
+                  : pt
+                    ? "A minha localização"
+                    : "My location"}
+            </Button>
+            {/* Leaflet needs the browser: the server sends the placeholder (same size), and the map
+                loads once its box is on screen and the page has painted. */}
+            <ClientOnly fallback={MAP_PLACEHOLDER}>
+              {!mapBox.ready ? (
+                MAP_PLACEHOLDER
+              ) : (
+                <Suspense fallback={MAP_PLACEHOLDER}>
+                  <InteractiveMap
+                    destinations={showDestinations ? mappable : []}
+                    community={showCommunity ? filteredCommunity : []}
+                    highlightCommunityId={selectedCommunityId}
+                    onSelectCommunity={(c) => setSelectedCommunityId(c.id)}
+                    onOpenCommunity={(c) =>
+                      navigate({ to: "/community-experiences", search: { open: c.id } })
+                    }
+                    selectedId={selected?.id ?? null}
+                    onPick={(d) => {
+                      setSelected(d);
+                      setDirectionsOpen(false);
+                    }}
+                    onSelect={showDetails}
+                    onDirections={openDirections}
+                    origin={origin}
+                    visitedIds={visited}
+                    focus={focus}
+                  />
+                </Suspense>
+              )}
+            </ClientOnly>
+          </Card>
+
+          {/* Sidebar list (phones: above the map, so the page shows content before the map loads) */}
+          <div className="space-y-3 lg:max-h-[640px] lg:overflow-y-auto pr-1 order-first lg:order-none">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                {visibleDestinations.length} {lang === "pt" ? "destinos" : "destinations"}
+              </h2>
+              {hasProvincePrefs && (
+                <button
+                  onClick={() => mapFilters.set((cur) => ({ onlyMine: !cur.onlyMine }))}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {showAllDestinations
+                    ? lang === "pt"
+                      ? "Só o meu destino"
+                      : "Only my destination"
+                    : lang === "pt"
+                      ? "Ver todos"
+                      : "Show all"}
+                </button>
+              )}
+            </div>
+            {loadingDestinations && (
+              <Card className="border-0 shadow-[var(--shadow-soft)] p-4 text-sm text-muted-foreground animate-pulse">
+                {lang === "pt" ? "A carregar destinos..." : "Loading destinations..."}
+              </Card>
+            )}
+            {destinationsError && (
+              <Card className="border-0 shadow-[var(--shadow-soft)] p-4 space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  {lang === "pt"
+                    ? "Não foi possível carregar os destinos. Verifica a ligação e tenta novamente."
+                    : "We couldn't load the destinations. Check your connection and try again."}
+                </p>
+                <Button size="sm" variant="outline" onClick={() => void reload()}>
+                  {lang === "pt" ? "Tentar novamente" : "Try again"}
+                </Button>
+              </Card>
+            )}
+            {isEmpty && (
+              <Card className="border-0 shadow-[var(--shadow-soft)] p-4 text-sm text-muted-foreground">
+                {lang === "pt"
+                  ? "Ainda não existem destinos disponíveis."
+                  : "No destinations available yet."}
+              </Card>
+            )}
+            {visibleDestinations.map((d, i) => (
+              <motion.div
+                key={d.id}
+                initial={serverDestinations ? false : { opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+              >
+                <Card
+                  onClick={() => {
+                    setSelected(d);
+                    if (hasValidCoords(d.coords)) setFocus(d.coords);
+                  }}
+                  className={`overflow-hidden border-0 cursor-pointer transition-all ${selected?.id === d.id ? "ring-2 ring-primary shadow-[var(--shadow-elegant)]" : "shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-elegant)]"}`}
+                >
+                  <div className="flex">
+                    {/* The first card is in the first screen on phones: load it at once. */}
+                    <img
+                      loading={i === 0 ? "eager" : "lazy"}
+                      fetchPriority={i === 0 ? "high" : "auto"}
+                      decoding="async"
+                      src={d.thumbnail}
+                      alt={d.name}
+                      className="size-24 object-cover"
+                    />
+                    <div className="flex-1 p-3 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-bold truncate">{d.name}</h3>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
+                          {d.region[lang]}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                        {d.description[lang]}
+                      </p>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {isVisited(d.id) && (
+                          <Badge className="text-[9px] px-1.5 py-0 bg-success text-success-foreground">
+                            <Check className="size-2.5 mr-1" />
+                            {pt ? "Visitado" : "Visited"}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Selected detail */}
+        {selected && (
+          <motion.div
+            ref={detailRef}
+            key={selected.id}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-6"
+          >
+            <Card className="overflow-hidden border-0 shadow-[var(--shadow-elegant)]">
+              <div className="grid md:grid-cols-2">
+                <div className="relative">
+                  <img
+                    src={selected.image}
+                    alt={selected.name}
+                    className="w-full h-64 md:h-full object-cover"
+                  />
+                  <PhotoCredit src={selected.image} />
+                  <div className="absolute top-3 right-3">
+                    <FavoriteButton itemId={selected.slug} itemType="place" size="md" />
+                  </div>
+                </div>
+                <div className="p-6">
+                  <p className="text-xs uppercase tracking-wide text-primary font-semibold">
+                    {selected.region[lang]}
+                  </p>
+                  <h2 className="text-2xl font-bold mt-1">{selected.name}</h2>
+                  <p className="text-muted-foreground mt-2">{selected.description[lang]}</p>
+
+                  <div className="mt-4">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                      {lang === "pt" ? "Destaques" : "Highlights"}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {selected.highlights.map((h, i) => (
+                        <Badge key={i} variant="outline">
+                          {h[lang]}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Button
+                      onClick={() => void toggleVisit(selected)}
+                      disabled={savingVisit}
+                      variant={isVisited(selected.id) ? "outline" : "default"}
+                      className={isVisited(selected.id) ? "" : ""}
+                    >
+                      {savingVisit ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : isVisited(selected.id) ? (
+                        <Undo2 className="size-4" />
+                      ) : (
+                        <Check className="size-4" />
+                      )}
+                      {isVisited(selected.id)
+                        ? pt
+                          ? "Desmarcar visita"
+                          : "Unmark visit"
+                        : pt
+                          ? "Marcar como visitado"
+                          : "Mark as visited"}
+                    </Button>
+                    <Button variant="outline" onClick={() => openDirections(selected)}>
+                      <Navigation className="size-4" /> {pt ? "Como chegar" : "Get directions"}
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate({ to: "/experiences" })}>
+                      {pt ? "Ver atividades" : "See activities"}
+                    </Button>
+                    {selected.province && (
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          navigate({ to: "/itineraries", search: { province: selected.province } })
+                        }
+                      >
+                        <RouteIcon className="size-4" />{" "}
+                        {pt ? "Roteiros desta província" : "Itineraries in this province"}
+                      </Button>
+                    )}
+                  </div>
+
+                  {directionsOpen && hasValidCoords(selected.coords) && (
+                    <div className="mt-6 rounded-xl border bg-accent/30 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold flex items-center gap-2">
+                          <Navigation className="size-4 text-primary" />{" "}
+                          {pt ? "Abrir direções em" : "Open directions in"}
+                        </h3>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDirectionsOpen(false)}
+                          aria-label={pt ? "Fechar" : "Close"}
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {(() => {
+                          const u = directionsUrls(selected.coords);
+                          return (
+                            [
+                              ["Google Maps", u.google],
+                              ["Apple Maps", u.apple],
+                              ["Waze", u.waze],
+                            ] as const
+                          ).map(([label, href]) => (
+                            <Button key={label} asChild variant="outline" className="bg-background">
+                              <a href={href} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="size-4" /> {label}
+                              </a>
+                            </Button>
+                          ));
+                        })()}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-3">
+                        {pt
+                          ? "As direções abrem na aplicação de mapas do teu dispositivo."
+                          : "Directions open in your device's maps app."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+      </main>
+    </div>
+  );
+}

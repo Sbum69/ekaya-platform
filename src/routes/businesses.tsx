@@ -1,0 +1,269 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Suspense, lazy, useEffect, useState } from "react";
+import { Store, Search, MapPin, Compass, BadgeCheck, RefreshCw } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { BusinessMark } from "@/components/BusinessMark";
+import { Card } from "@/components/ui/card";
+import { JoinEkayaCard } from "@/components/JoinEkayaCard";
+import { CONTENT_TXT } from "@/lib/page-texts";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useLang } from "@/contexts/LanguageContext";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { UserMenu } from "@/components/UserMenu";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { AppSidebar } from "@/components/AppSidebar";
+import { useBusinessCategories, useProvinces } from "@/hooks/useProvinces";
+import { usePersonalPrefs } from "@/hooks/usePersonalPrefs";
+import { usePrefilledFilters } from "@/hooks/usePrefilledFilters";
+import { ResetPrefsButton } from "@/components/ResetPrefsButton";
+import { preferredProvinceId } from "@/lib/pref-filters";
+import { fetchPublicBusinesses, type PublicBusiness } from "@/lib/local-businesses";
+import { BackButton } from "@/components/BackButton";
+
+const SponsoredStrip = lazy(() =>
+  import("@/components/SponsoredStrip").then((m) => ({ default: m.SponsoredStrip })),
+);
+
+export const Route = createFileRoute("/businesses")({
+  head: () => ({
+    meta: [
+      { title: "Negócios Locais — EKAYA" },
+      {
+        name: "description",
+        content:
+          "Descobre negócios locais registados no EKAYA em todas as províncias de Moçambique.",
+      },
+      { property: "og:title", content: "Negócios Locais — EKAYA" },
+      {
+        property: "og:description",
+        content: "Descobre negócios locais registados no EKAYA em Moçambique.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
+  ssr: false,
+  component: BusinessesPage,
+});
+
+const ALL = "all";
+
+function BusinessesPage() {
+  const { lang } = useLang();
+  const pt = lang === "pt";
+  const { provinces } = useProvinces();
+  const { categories } = useBusinessCategories();
+  // Starts on the first saved province; changing it never changes the preferences.
+  const personalPrefs = usePersonalPrefs();
+  const savedProvince = personalPrefs.hasPrefs
+    ? preferredProvinceId(personalPrefs, provinces)
+    : null;
+  const provinceFilter = usePrefilledFilters<string>(savedProvince, ALL);
+  const provinceId = provinceFilter.value;
+  const setProvinceId = (id: string) => provinceFilter.set(id);
+  const [category, setCategory] = useState(ALL);
+  const [search, setSearch] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [items, setItems] = useState<PublicBusiness[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    fetchPublicBusinesses({
+      provinceId: provinceId === ALL ? undefined : provinceId,
+      categoryCode: category === ALL ? undefined : category,
+      search: debounced,
+    })
+      .then((rows) => active && setItems(rows))
+      .catch((e: unknown) => active && setError(e instanceof Error ? e.message : "error"))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [provinceId, category, debounced, tick]);
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-30 bg-background/90 backdrop-blur border-b">
+        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-2">
+          <AppSidebar />
+          <BackButton fallback="auto" showLabel />
+          <h1 className="font-bold text-lg flex items-center gap-2 flex-1">
+            <Store className="size-5 text-primary" />
+            {pt ? "Negócios Locais" : "Local Businesses"}
+          </h1>
+          <ThemeToggle />
+          <LanguageToggle />
+          <UserMenu />
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        <p className="text-muted-foreground">
+          {pt
+            ? "Descobre os negócios comunitários registados no EKAYA e as experiências que oferecem."
+            : "Discover the community businesses registered on EKAYA and the experiences they offer."}
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="relative">
+            <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={pt ? "Pesquisar negócios" : "Search businesses"}
+              className="pl-9"
+              aria-label={pt ? "Pesquisar negócios" : "Search businesses"}
+            />
+          </div>
+          <Select value={provinceId} onValueChange={setProvinceId}>
+            <SelectTrigger aria-label={pt ? "Província" : "Province"}>
+              <SelectValue placeholder={pt ? "Província" : "Province"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{pt ? "Todas as províncias" : "All provinces"}</SelectItem>
+              {provinces.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name[lang]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger aria-label={pt ? "Categoria" : "Category"}>
+              <SelectValue placeholder={pt ? "Categoria" : "Category"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{pt ? "Todas as categorias" : "All categories"}</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  {c.name[lang]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {provinceFilter.canReset && <ResetPrefsButton onClick={provinceFilter.reset} />}
+        </div>
+
+        <Suspense fallback={null}>
+          {category !== ALL ? (
+            <SponsoredStrip scope="category" categoryCode={category} />
+          ) : provinceId !== ALL ? (
+            <SponsoredStrip scope="province" provinceId={provinceId} />
+          ) : null}
+        </Suspense>
+
+        {loading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-56 rounded-xl bg-muted animate-pulse" />
+            ))}
+            <span className="sr-only">{pt ? "A carregar negócios…" : "Loading businesses…"}</span>
+          </div>
+        ) : error ? (
+          <Card className="p-6 text-center space-y-3">
+            <p className="text-destructive font-medium">
+              {pt ? "Não foi possível carregar os negócios." : "Could not load businesses."}
+            </p>
+            <Button variant="outline" onClick={() => setTick((t) => t + 1)}>
+              <RefreshCw className="size-4 mr-1" />
+              {pt ? "Tentar novamente" : "Try again"}
+            </Button>
+          </Card>
+        ) : items.length === 0 ? (
+          <JoinEkayaCard message={CONTENT_TXT[lang].emptyBusinesses} />
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">
+              {items.length}{" "}
+              {pt
+                ? items.length === 1
+                  ? "negócio"
+                  : "negócios"
+                : items.length === 1
+                  ? "business"
+                  : "businesses"}
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {items.map((b) => (
+                <BusinessCard key={b.id} b={b} />
+              ))}
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function BusinessCard({ b }: { b: PublicBusiness }) {
+  const { lang } = useLang();
+  const pt = lang === "pt";
+  return (
+    <Link to="/business/$id" params={{ id: b.id }} className="block h-full">
+      <Card className="overflow-hidden h-full flex flex-col border-0 shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-elegant)] transition-shadow">
+        <div className="h-32">
+          {b.image ? (
+            <img src={b.image} alt={b.name} className="w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <BusinessMark
+              name={b.name}
+              categoryCode={b.categoryCode}
+              categoryLabel={b.category?.[lang]}
+            />
+          )}
+        </div>
+        <div className="p-4 flex-1 flex flex-col gap-2">
+          <div className="flex items-start gap-2">
+            <h2 className="font-bold flex-1">{b.name}</h2>
+            {b.verified && (
+              <BadgeCheck
+                className="size-4 text-primary shrink-0"
+                aria-label={pt ? "Verificado" : "Verified"}
+              />
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {b.category && <Badge variant="secondary">{b.category[lang]}</Badge>}
+            {b.province && (
+              <Badge variant="outline" className="gap-1">
+                <MapPin className="size-3" />
+                {b.province[lang]}
+              </Badge>
+            )}
+          </div>
+          {b.description && (
+            <p className="text-sm text-muted-foreground line-clamp-2">{b.description}</p>
+          )}
+          <div className="mt-auto pt-2 flex items-center justify-between text-sm">
+            <span className="text-muted-foreground flex items-center gap-1">
+              <Compass className="size-4" />
+              {b.experienceCount} {pt ? "experiências" : "experiences"}
+            </span>
+            <span className="text-primary font-medium">
+              {pt ? "Ver detalhes" : "View details"} →
+            </span>
+          </div>
+        </div>
+      </Card>
+    </Link>
+  );
+}

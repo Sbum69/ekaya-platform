@@ -1,0 +1,489 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789752693434,
+      "tag": "0000_seed_destinations_catalogue",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789753629811,
+      "tag": "0001_seed_experiences_catalogue",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789753921809,
+      "tag": "0002_align_businesses_guard_with_no_session",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789756924091,
+      "tag": "0003_grant_admin_role_to_owner",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789757247579,
+      "tag": "0004_move_admin_role_to_verified_owner",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789778517584,
+      "tag": "0005_provinces_and_business_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789818598937,
+      "tag": "0006_create_routes_itineraries",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789838361218,
+      "tag": "0007_create_community",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789838396946,
+      "tag": "0008_community_public_authors_view",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789838807504,
+      "tag": "0009_community_anon_category_policy",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789838828396,
+      "tag": "0010_community_authors_view_no_has_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790043786361,
+      "tag": "0011_create_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790217059845,
+      "tag": "0012_create_destination_visits",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790321623657,
+      "tag": "0013_news_likes_event_participations",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790391071078,
+      "tag": "0014_booking_cancel_and_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1790734644971,
+      "tag": "0015_community_experiences",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791132665411,
+      "tag": "0016_community_experiences_submissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791180309809,
+      "tag": "0017_community_experiences_notify_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791373620504,
+      "tag": "0018_routes_8d_review_bilingual_stops_proofs",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791377524278,
+      "tag": "0019_fix_route_stops_ref_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791378508993,
+      "tag": "0020_admins_read_profiles",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791381828599,
+      "tag": "0021_route_catalog_validation_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791969679643,
+      "tag": "0022_business_approval_workflow",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792346859548,
+      "tag": "0023_business_management_8e2",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792347351806,
+      "tag": "0024_business_profile_province_integrity_8e2",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792347376702,
+      "tag": "0025_business_management_history_fields_8e2",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792353919357,
+      "tag": "0026_booking_workflow_slot_closure_8e3",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792411793396,
+      "tag": "0027_public_impact_stats_9b",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792412576765,
+      "tag": "0028_notify_owner_on_tourist_cancel_12",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792413172340,
+      "tag": "0029_points_ledger_10",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792413397219,
+      "tag": "0030_points_ledger_revoke_writes_10",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1792414573020,
+      "tag": "0031_games_achievements_rewards",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792416903445,
+      "tag": "0032_itinerary_integrity_atomic_plans",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792416999164,
+      "tag": "0033_itinerary_evidence_guard_insert_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792760665012,
+      "tag": "0034_businesses_unique_owner",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792815381144,
+      "tag": "0035_bookings_admin_transitions",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792818573335,
+      "tag": "0036_booking_status_no_show",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792818573343,
+      "tag": "0037_commercial_flow_8e5",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792821209298,
+      "tag": "0038_rewards_and_located_proofs",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792848620032,
+      "tag": "0039_admin_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793000000000,
+      "tag": "0040_exchange_rates",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793100000000,
+      "tag": "0041_favorites_and_preferences",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793200000000,
+      "tag": "0042_admin_broadcasts",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793300000000,
+      "tag": "0043_routes_seed_english_texts",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793400000000,
+      "tag": "0044_community_location_en_and_hide_test_route",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1793500000000,
+      "tag": "0045_security_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793600000000,
+      "tag": "0046_settings_avatars_notifications_account",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793700000000,
+      "tag": "0047_internal_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793800000000,
+      "tag": "0048_delete_account_anonymise_bookings",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793900000000,
+      "tag": "0049_legal_acceptances",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1794000000000,
+      "tag": "0050_admin_mfa_aal2",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1794100000000,
+      "tag": "0051_content_readiness_import_invites",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1794200000000,
+      "tag": "0052_content_readiness_fix_maputo_city",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1794300000000,
+      "tag": "0053_commission_engine",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1794400000000,
+      "tag": "0054_sponsored_placements",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1794500000000,
+      "tag": "0055_business_leads",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1794600000000,
+      "tag": "0056_assistant_faq",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1794700000000,
+      "tag": "0057_launch_status_error_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1794800000000,
+      "tag": "0058_privacy_v2_audit_fixes",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1794900000000,
+      "tag": "0059_content_photos_policies_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1795000000000,
+      "tag": "0060_admin_role_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1795100000000,
+      "tag": "0061_legal_versions_2026_11_06",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1795200000000,
+      "tag": "0062_terms_version_2026_11_07",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1795300000000,
+      "tag": "0063_privacy_version_2026_11_07",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1795400000000,
+      "tag": "0064_province_itineraries",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1795500000000,
+      "tag": "0065_quiz_bilingual_province",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1795600000000,
+      "tag": "0066_province_games",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1795700000000,
+      "tag": "0067_route_plan_travel_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1795800000000,
+      "tag": "0068_onboarding_guides",
+      "breakpoints": true
+    }
+  ]
+}

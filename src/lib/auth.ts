@@ -1,0 +1,165 @@
+import { redirect } from "@tanstack/react-router";
+
+import { supabase } from "@/integrations/supabase/client";
+
+export type AppRole = "tourist" | "business_small" | "business_large" | "admin";
+
+/** Internal pages login/signup may return to. A whitelist, so `?redirect=` can never point elsewhere. */
+// Fixed allowlist (no open redirects): pages a guest can return to after signing in.
+export const AUTH_RETURN_PATHS = [
+  "/business-register",
+  "/home",
+  "/map",
+  "/experiences",
+  "/community-experiences",
+  "/itineraries",
+  "/news-alerts",
+  "/community",
+  "/favorites",
+  "/dashboard",
+  "/bookings",
+  "/gamification",
+  "/games",
+  "/settings",
+] as const;
+export type AuthReturnPath = (typeof AUTH_RETURN_PATHS)[number];
+
+export function parseAuthReturn(value: unknown): AuthReturnPath | undefined {
+  return AUTH_RETURN_PATHS.find((path) => path === value);
+}
+
+/** Page saved at sign-up (user_metadata.return_to), only if it is still on the allowlist. */
+export function postConfirmTarget(
+  metadata: Record<string, unknown> | null | undefined,
+): AuthReturnPath | undefined {
+  return parseAuthReturn(metadata?.return_to);
+}
+
+/** Allowed return target for the current page; a route detail returns to its list. */
+export function authReturnFor(pathname: string): AuthReturnPath | undefined {
+  if (pathname.startsWith("/itinerary/")) return "/itineraries";
+  if (pathname.startsWith("/experience/")) return "/experiences";
+  if (pathname.startsWith("/community/")) return "/community";
+  return parseAuthReturn(pathname);
+}
+
+/** Search schema shared by /login and /signup. */
+export function validateAuthReturnSearch(search: Record<string, unknown>): {
+  redirect?: AuthReturnPath;
+} {
+  const target = parseAuthReturn(search.redirect);
+  return target ? { redirect: target } : {};
+}
+
+export async function getAuthenticatedUser() {
+  const { data, error } = await supabase.auth.getUser();
+  return error ? null : data.user;
+}
+
+/** Route guard: without a session, go to /login and come back here afterwards (allow-listed pages only). */
+export async function requireAuthenticatedUser(ctx?: { location?: { pathname: string } }) {
+  // Route guard only (every read and write is protected by RLS): the session already stored in the
+  // browser decides whether to show the page, without a network round trip before the first paint.
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user ?? null;
+  if (!user) {
+    const back = ctx?.location ? authReturnFor(ctx.location.pathname) : undefined;
+    throw redirect({ to: "/login", search: back ? { redirect: back } : {} });
+  }
+  return user;
+}
+
+/**
+ * Guard of the traveller's panel (/dashboard): business and admin accounts have their own panel,
+ * decided by server-side user_roles rows (never by client state that may still be loading).
+ */
+export async function requireTravellerPanel(ctx?: { location?: { pathname: string } }) {
+  const user = await requireAuthenticatedUser(ctx);
+  const roles = await getAuthenticatedRoles(user.id);
+  if (roles.includes("admin")) throw redirect({ to: "/admin" });
+  if (roles.includes("business_small") || roles.includes("business_large"))
+    throw redirect({ to: "/business-dashboard", search: { status: "all" } });
+  return user;
+}
+
+export async function getAuthenticatedRoles(userId: string): Promise<AppRole[]> {
+  const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+
+  if (error) return [];
+  return data.map(({ role }) => role);
+}
+
+/** Onboarding is considered complete once the profile has a chosen province. */
+export async function hasCompletedOnboarding(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("province")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) return true; // never block the user because of a read failure
+  return !!data?.province;
+}
+
+export async function requireRole(allowed: AppRole[]) {
+  const user = await requireAuthenticatedUser();
+  const roles = await getAuthenticatedRoles(user.id);
+  if (!roles.some((role) => allowed.includes(role))) {
+    throw redirect({ to: "/dashboard" });
+  }
+  return { user, roles };
+}
+
+/**
+ * Admin pages: the admin role and a two-step (aal2) session. Without the code, go to
+ * Settings → Security (turn 2FA on, or the code prompt asks for it). The database enforces the
+ * same rule in has_role (0050); this guard only decides what to show.
+ */
+export async function requireAdmin() {
+  const result = await requireRole(["admin"]);
+  const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (data?.currentLevel !== "aal2") {
+    // After the code (MfaChallengeGate) or turning 2FA on, the admin comes back here.
+    throw redirect({
+      to: "/settings",
+      search: { mfa: "required", next: "/admin" },
+      hash: "security",
+    });
+  }
+  return result;
+}
+
+/** Where an authenticated user should land: onboarding first, then the app. */
+export async function postAuthTarget(userId: string): Promise<"/onboarding" | "/home"> {
+  return (await hasCompletedOnboarding(userId)) ? "/home" : "/onboarding";
+}
+
+export type PanelPath = "/admin" | "/business-dashboard" | "/onboarding" | "/dashboard";
+
+/**
+ * The panel of the account's role, from server-side user_roles rows only: admin, business, or the
+ * traveller's dashboard (onboarding first while the profile has no province).
+ */
+export async function roleLandingTarget(userId: string): Promise<PanelPath> {
+  const roles = await getAuthenticatedRoles(userId);
+  if (roles.includes("admin")) return "/admin";
+  if (roles.includes("business_small") || roles.includes("business_large"))
+    return "/business-dashboard";
+  return (await hasCompletedOnboarding(userId)) ? "/dashboard" : "/onboarding";
+}
+
+/**
+ * Where to go after any sign-in (password, email confirmation, session already open).
+ * "/dashboard" (or nothing) means "my panel": the role's panel. Any other allow-listed page is kept.
+ * A new account with nothing requested goes back to where sign-up started (user_metadata.return_to).
+ */
+export async function signInLanding(
+  user: { id: string; user_metadata?: Record<string, unknown> | null },
+  requested?: AuthReturnPath,
+): Promise<AuthReturnPath | PanelPath> {
+  const panel = await roleLandingTarget(user.id);
+  const target =
+    requested ?? (panel === "/onboarding" ? postConfirmTarget(user.user_metadata) : undefined);
+  if (!target || target === "/dashboard") return panel;
+  return target;
+}

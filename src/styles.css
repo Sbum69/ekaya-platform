@@ -1,0 +1,248 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root and .dark blocks define the actual color values using oklch.
+ * All colors MUST use oklch format.
+ *
+ * To add a new semantic color:
+ * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ */
+
+@theme inline {
+  --font-sans: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-primary-glow: var(--primary-glow);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* DESIGN-1 "Capulana e Índico" (docs/DESIGN.md). Every text pair ≥ 4.5:1, control borders ≥ 3:1. */
+:root {
+  --radius: 0.625rem;
+  --background: #f5f7f6;
+  --foreground: #15211f;
+  --card: #ffffff;
+  --card-foreground: #15211f;
+  --popover: #ffffff;
+  --popover-foreground: #15211f;
+  /* Índico — the one action colour (buttons, links, focus). */
+  --primary: #0a6670;
+  --primary-foreground: #ffffff;
+  --primary-glow: #08525a;
+  /* Mangrove green — second colour and positive states. */
+  --secondary: #2c6a43;
+  --secondary-foreground: #ffffff;
+  --muted: #e8eeec;
+  --muted-foreground: #4e5d59;
+  --accent: #e2eeee;
+  --accent-foreground: #0a3f45;
+  --success: #2c6a43;
+  --success-foreground: #ffffff;
+  /* Capulana ochre — highlights only, dark text on it. */
+  --warning: #e2a12b;
+  --warning-foreground: #15211f;
+  /* Capulana red — errors, cancel, delete. */
+  --destructive: #b3372b;
+  --destructive-foreground: #ffffff;
+  --border: #d3dcd9;
+  /* Field and control borders need 3:1 against the page (WCAG 1.4.11). */
+  --input: #7f908b;
+  --ring: #0a6670;
+  /* No colour gradients: the old gradient tokens are flat now (photo veils use black/alpha). */
+  --gradient-hero: linear-gradient(var(--primary), var(--primary));
+  --gradient-sunset: linear-gradient(var(--primary), var(--primary));
+  --gradient-ocean: linear-gradient(var(--primary), var(--primary));
+  --gradient-savanna: linear-gradient(var(--secondary), var(--secondary));
+  --gradient-card: linear-gradient(var(--card), var(--card));
+  /* Cards are set off by a 1px outline, not a shadow; one elevation for menus and dialogs. */
+  --shadow-soft: 0 0 0 1px var(--border);
+  --shadow-elegant: 0 0 0 1px var(--input);
+  --shadow-glow: none;
+  --shadow-overlay: 0 12px 32px -8px rgb(13 22 21 / 0.25);
+  --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --chart-1: #0a6670;
+  --chart-2: #e2a12b;
+  --chart-3: #2c6a43;
+  --chart-4: #b3372b;
+  --chart-5: #4e5d59;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #15211f;
+  --sidebar-primary: #0a6670;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e2eeee;
+  --sidebar-accent-foreground: #0a3f45;
+  --sidebar-border: #d3dcd9;
+  --sidebar-ring: #0a6670;
+}
+
+.dark {
+  --background: #0d1615;
+  --foreground: #e7eeec;
+  --card: #15201f;
+  --card-foreground: #e7eeec;
+  --popover: #15201f;
+  --popover-foreground: #e7eeec;
+  --primary: #4fb9c2;
+  --primary-foreground: #062326;
+  --primary-glow: #6ccad2;
+  --secondary: #6cc08a;
+  --secondary-foreground: #062326;
+  --muted: #22302e;
+  --muted-foreground: #9db0ab;
+  --accent: #1e3436;
+  --accent-foreground: #e7eeec;
+  --success: #6cc08a;
+  --success-foreground: #062326;
+  --warning: #f0b44a;
+  --warning-foreground: #062326;
+  --destructive: #f07a6c;
+  --destructive-foreground: #062326;
+  --border: #2a3836;
+  --input: #5e716c;
+  --ring: #4fb9c2;
+  --shadow-soft: 0 0 0 1px var(--border);
+  --shadow-elegant: 0 0 0 1px var(--input);
+  --shadow-overlay: 0 12px 32px -8px rgb(0 0 0 / 0.6);
+  --chart-1: #4fb9c2;
+  --chart-2: #f0b44a;
+  --chart-3: #6cc08a;
+  --chart-4: #f07a6c;
+  --chart-5: #9db0ab;
+  --sidebar: #15201f;
+  --sidebar-foreground: #e7eeec;
+  --sidebar-primary: #4fb9c2;
+  --sidebar-primary-foreground: #062326;
+  --sidebar-accent: #1e3436;
+  --sidebar-accent-foreground: #e7eeec;
+  --sidebar-border: #2a3836;
+  --sidebar-ring: #4fb9c2;
+}
+
+/* Fonts (Bricolage Grotesque, Atkinson Hyperlegible) are declared in public/fonts/fonts.css and
+   loaded after the first paint (src/lib/brand-fonts.ts); until then the system fallbacks show. */
+
+/* Thin band inspired by the capulana border: header, sidebar and section dividers only. */
+@utility capulana-band {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='8'%3E%3Cpath d='M0 8 6 0 12 8z' fill='%230A6670'/%3E%3Cpath d='M12 8 18 0 24 8z' fill='%23E2A12B'/%3E%3Cpath d='M6 0h12L12 8z' fill='%23B3372B'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 24px 6px;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+
+  /* Visible keyboard focus everywhere; components with their own ring (outline-none + ring) override it. */
+  :where(a, button, [role="button"], input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  /* Native controls (select lists, scrollbars, date pickers) follow the theme. */
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+
+  /* Leaflet popups and controls use the theme tokens instead of their fixed white. */
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-tip {
+    background: var(--color-popover);
+    color: var(--color-popover-foreground);
+  }
+  .leaflet-container a.leaflet-popup-close-button {
+    color: var(--color-muted-foreground);
+  }
+  .leaflet-bar a,
+  .leaflet-control-layers {
+    background: var(--color-card);
+    color: var(--color-card-foreground);
+    border-color: var(--color-border);
+  }
+  .leaflet-control-attribution {
+    background: color-mix(in oklab, var(--color-card) 85%, transparent) !important;
+    color: var(--color-muted-foreground);
+  }
+  .leaflet-control-attribution a {
+    color: var(--color-foreground);
+  }
+}
+
+/* Home action bar (HomeCta): the floating helpers (assistant, storage notice) move above it. */
+html[data-home-cta="on"] .ekaya-float {
+  translate: 0 calc(-1 * (72px + env(safe-area-inset-bottom)));
+}
+@media (min-width: 768px) {
+  html[data-home-cta="on"] .ekaya-float {
+    translate: 0 -96px;
+  }
+}
